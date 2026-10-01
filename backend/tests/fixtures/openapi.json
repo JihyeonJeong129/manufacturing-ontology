@@ -1,0 +1,5246 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "RSW Maintenance MVP Integration API",
+    "version": "1.0.0-draft",
+    "description": "구현 전 제안 계약. README 5.10의 실제 payload와 별도 대조 필요. 기존 5개 API와 비동기 결과 조회 1개를 명세한다. 모든 예시는 합성 데이터다."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API 서비스와 같은 origin"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Alerts"
+    },
+    {
+      "name": "Answers"
+    },
+    {
+      "name": "Documents"
+    },
+    {
+      "name": "Feedback"
+    }
+  ],
+  "paths": {
+    "/api/v1/alerts": {
+      "post": {
+        "operationId": "createAlert",
+        "summary": "ML 경보 원본 접수",
+        "tags": [
+          "Alerts"
+        ],
+        "x-required-role": [
+          "producer_service"
+        ],
+        "description": "신규 경보 및 normalization 작업을 한 DB 트랜잭션으로 저장한다. 최초 접수에는 활성 published release가 필요. 중복은 producer_key+event_id와 원본 JSON 구조로 비교한다. 같은 내용 재수신은 작업을 추가하지 않는다.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertInput"
+              },
+              "examples": {
+                "alert_request": {
+                  "value": {
+                    "schema_version": "1.0",
+                    "producer_schema_version": "demo-ml-v1",
+                    "event_id": "demo-event-0001",
+                    "producer_key": "demo-ml",
+                    "asset_key": "RSW-DEMO-001",
+                    "occurred_at": "2026-09-26T01:00:00Z",
+                    "observation_window": {
+                      "start": "2026-09-26T00:59:50Z",
+                      "end": "2026-09-26T01:00:00Z"
+                    },
+                    "observed_codes": [
+                      {
+                        "namespace": "demo.dataset.raw_alarm",
+                        "code": "DEMO-E01",
+                        "observed_at": "2026-09-26T01:00:00Z"
+                      }
+                    ],
+                    "observations": [
+                      {
+                        "feature_key": "demo.cycle_duration",
+                        "value": 1.92,
+                        "unit": "s",
+                        "quality": "valid",
+                        "observed_at": "2026-09-26T01:00:00Z"
+                      }
+                    ],
+                    "ml_assessments": [
+                      {
+                        "kind": "classification",
+                        "model": {
+                          "name": "demo-classifier",
+                          "version": "demo-v1"
+                        },
+                        "target": {
+                          "namespace": "demo.dataset.fault_class",
+                          "code": "DEMO-F01"
+                        },
+                        "score": {
+                          "kind": "probability",
+                          "value": 0.82,
+                          "calibration_status": "uncalibrated"
+                        }
+                      }
+                    ],
+                    "operating_context": {
+                      "cycle_state": "unknown"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON/중복 JSON 키/필수 헤더 누락",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json이 아닌 요청 또는 지원하지 않는 Content-Encoding",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드 타입·범위·의미 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "신규 수신 완료; 해석 대기",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertAccepted"
+                },
+                "examples": {
+                  "alert_created": {
+                    "value": {
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "event_id": "demo-event-0001",
+                      "producer_key": "demo-ml",
+                      "received_at": "2026-09-26T01:00:00Z",
+                      "duplicate": false,
+                      "normalization": {
+                        "status": "queued",
+                        "updated_at": "2026-09-26T01:00:00Z",
+                        "error": null
+                      },
+                      "status_url": "/api/v1/alerts/00000000-0000-4000-8000-000000000001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "같은 사건·같은 내용 재수신",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertAccepted"
+                },
+                "examples": {
+                  "alert_duplicate": {
+                    "value": {
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "event_id": "demo-event-0001",
+                      "producer_key": "demo-ml",
+                      "received_at": "2026-09-26T01:00:00Z",
+                      "duplicate": true,
+                      "normalization": {
+                        "status": "queued",
+                        "updated_at": "2026-09-26T01:00:00Z",
+                        "error": null
+                      },
+                      "status_url": "/api/v1/alerts/00000000-0000-4000-8000-000000000001"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "EVENT_ID_CONFLICT",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts/{id}": {
+      "get": {
+        "operationId": "getAlert",
+        "summary": "경보와 정규화 결과·관련 시나리오 조회",
+        "tags": [
+          "Alerts"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AlertId"
+          },
+          {
+            "$ref": "#/components/parameters/ContextQuery"
+          }
+        ],
+        "description": "context_id 지정 시 해당 봉인 결과를 조회. 생략 시 기본 정규화 작업 결과. 대기/작업 실패도 리소스 조회는 200. 제출 원본과 해석 결과를 분리한다.",
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "경로/쿼리 형식 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "경보 상세",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertDetails"
+                },
+                "examples": {
+                  "alert_details": {
+                    "value": {
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "received_at": "2026-09-26T01:00:00Z",
+                      "submitted_event": {
+                        "schema_version": "1.0",
+                        "producer_schema_version": "demo-ml-v1",
+                        "event_id": "demo-event-0001",
+                        "producer_key": "demo-ml",
+                        "asset_key": "RSW-DEMO-001",
+                        "occurred_at": "2026-09-26T01:00:00Z",
+                        "observation_window": {
+                          "start": "2026-09-26T00:59:50Z",
+                          "end": "2026-09-26T01:00:00Z"
+                        },
+                        "observed_codes": [
+                          {
+                            "namespace": "demo.dataset.raw_alarm",
+                            "code": "DEMO-E01",
+                            "observed_at": "2026-09-26T01:00:00Z"
+                          }
+                        ],
+                        "observations": [
+                          {
+                            "feature_key": "demo.cycle_duration",
+                            "value": 1.92,
+                            "unit": "s",
+                            "quality": "valid",
+                            "observed_at": "2026-09-26T01:00:00Z"
+                          }
+                        ],
+                        "ml_assessments": [
+                          {
+                            "kind": "classification",
+                            "model": {
+                              "name": "demo-classifier",
+                              "version": "demo-v1"
+                            },
+                            "target": {
+                              "namespace": "demo.dataset.fault_class",
+                              "code": "DEMO-F01"
+                            },
+                            "score": {
+                              "kind": "probability",
+                              "value": 0.82,
+                              "calibration_status": "uncalibrated"
+                            }
+                          }
+                        ],
+                        "operating_context": {
+                          "cycle_state": "unknown"
+                        }
+                      },
+                      "normalization": {
+                        "status": "succeeded",
+                        "updated_at": "2026-09-26T01:00:01Z",
+                        "error": null
+                      },
+                      "context": {
+                        "context_id": "00000000-0000-4000-8000-000000000002",
+                        "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                        "knowledge_version": "demo-kb-v1",
+                        "normalizer_version": "demo-normalizer-v1",
+                        "status": "partial",
+                        "asset": {
+                          "reported_key": "RSW-DEMO-001",
+                          "asset_id": "00000000-0000-4000-8000-000000000007",
+                          "asset_config_id": null,
+                          "verification_status": "unresolved"
+                        },
+                        "code_mappings": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000013",
+                            "input_index": 0,
+                            "entity_id": null,
+                            "status": "unmapped"
+                          }
+                        ],
+                        "observation_mappings": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000014",
+                            "input_index": 0,
+                            "feature_id": null,
+                            "binding_id": null,
+                            "status": "unmapped"
+                          }
+                        ],
+                        "ml_mappings": [
+                          {
+                            "id": "00000000-0000-4000-8000-000000000015",
+                            "input_index": 0,
+                            "target_entity_id": null,
+                            "target_kind": null
+                          }
+                        ],
+                        "warnings": [
+                          {
+                            "code": "ASSET_CONFIG_UNRESOLVED",
+                            "message": "예시 장비의 구성 정보를 확인해야 합니다.",
+                            "field": "asset_key"
+                          }
+                        ],
+                        "sealed_at": "2026-09-26T01:00:01Z"
+                      },
+                      "related_scenarios": {
+                        "status": "no_match",
+                        "matcher_version": "demo-matcher-v1",
+                        "items": [],
+                        "error": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "경보 또는 해당 경보의 context를 찾을 수 없음",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/alerts/{id}/questions": {
+      "post": {
+        "operationId": "createQuestion",
+        "summary": "작업자 질문 접수 및 답변 실행 생성",
+        "tags": [
+          "Answers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AlertId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionInput"
+              },
+              "examples": {
+                "question_request": {
+                  "value": {
+                    "context_id": "00000000-0000-4000-8000-000000000002",
+                    "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요."
+                  }
+                },
+                "followup_request": {
+                  "value": {
+                    "context_id": "00000000-0000-4000-8000-000000000002",
+                    "question": "비용접 상태에서 발생했습니다. 이 정보를 반영해 설명해주세요.",
+                    "reply_to_answer_id": "00000000-0000-4000-8000-000000000004",
+                    "context_answers": [
+                      {
+                        "question_key": "cycle_state",
+                        "value": "non_welding",
+                        "unit": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "봉인 context와 지식 release를 고정한다. 실행/작업/멱등 기록을 한 트랜잭션으로 생성한다. 반환 answer_id는 assistant_runs.id. 실제 답변은 status_url에서 조회한다.",
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON/중복 JSON 키/필수 헤더 누락",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json이 아닌 요청 또는 지원하지 않는 Content-Encoding",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드 타입·범위·의미 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "답변 실행 접수; 멱등 재시도 시 최초 응답 재생",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "Idempotency-Replayed": {
+                "description": "서버 자체 재생 표시 헤더; 표준 헤더라는 의미가 아님",
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionAccepted"
+                },
+                "examples": {
+                  "question_accepted": {
+                    "value": {
+                      "answer_id": "00000000-0000-4000-8000-000000000004",
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "context_id": "00000000-0000-4000-8000-000000000002",
+                      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                      "status": "pending",
+                      "status_url": "/api/v1/answers/00000000-0000-4000-8000-000000000004",
+                      "created_at": "2026-09-26T01:00:05Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "경보/context/이전 답변 없음",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ALERT_NOT_READY, CONTEXT_ALERT_MISMATCH, CONTEXT_NOT_USABLE, REPLY_CONTEXT_MISMATCH, ANSWER_NOT_READY, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/answers/{id}": {
+      "get": {
+        "operationId": "getAnswer",
+        "summary": "추가 필수 API: 비동기 답변 상태·결과 조회",
+        "tags": [
+          "Answers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AnswerId"
+          }
+        ],
+        "description": "pending/running은 result=null. needs_context/insufficient_evidence는 정상 완료. 실패 상태도 HTTP 200이며 error에 실패 사유를 제공한다.",
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "경로/쿼리 형식 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "답변 실행 상태와 결과",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnswerDetails"
+                },
+                "examples": {
+                  "answer_pending": {
+                    "value": {
+                      "answer_id": "00000000-0000-4000-8000-000000000004",
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "context_id": "00000000-0000-4000-8000-000000000002",
+                      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                      "reply_to_answer_id": null,
+                      "status": "pending",
+                      "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+                      "started_at": "2026-09-26T01:00:05Z",
+                      "finished_at": null,
+                      "result": null,
+                      "error": null
+                    }
+                  },
+                  "answer_answered": {
+                    "value": {
+                      "answer_id": "00000000-0000-4000-8000-000000000016",
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "context_id": "00000000-0000-4000-8000-000000000002",
+                      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                      "reply_to_answer_id": null,
+                      "status": "answered",
+                      "question": "형식 설명용 가상 매뉴얼의 예시 적용 범위 절을 보여주세요.",
+                      "started_at": "2026-09-26T01:00:05Z",
+                      "finished_at": "2026-09-26T01:00:10Z",
+                      "result": {
+                        "summary": "가상 매뉴얼의 예시 절을 표시합니다. 해당 자료는 유사 참고 자료로 분류되어 정비 절차 안내에 사용하지 않습니다.",
+                        "claims": [
+                          {
+                            "claim_key": "example-manual-scope",
+                            "type": "manual_fact",
+                            "text": "이 인용문은 API 형식 설명용 가상 데이터이며 실제 매뉴얼의 내용이 아닙니다.",
+                            "citation_ids": [
+                              "00000000-0000-4000-8000-000000000012"
+                            ],
+                            "event_evidence": []
+                          }
+                        ],
+                        "procedures": [],
+                        "follow_up_questions": [],
+                        "citations": [
+                          {
+                            "citation_id": "00000000-0000-4000-8000-000000000012",
+                            "claim_key": "example-manual-scope",
+                            "section_id": "00000000-0000-4000-8000-000000000009",
+                            "section_title": "예시 적용 범위",
+                            "section_number": "2.1",
+                            "span_id": "00000000-0000-4000-8000-000000000010",
+                            "document_revision_id": "00000000-0000-4000-8000-000000000011",
+                            "document_title": "형식 설명용 가상 매뉴얼",
+                            "document_url": "/api/v1/documents/00000000-0000-4000-8000-000000000011",
+                            "quote": "이 인용문은 API 형식 설명용 가상 데이터이며 실제 매뉴얼의 내용이 아닙니다.",
+                            "reference_scope": "analogous",
+                            "locator": {
+                              "kind": "pdf_page",
+                              "page_number": 12,
+                              "printed_page_label": "10",
+                              "char_start": null,
+                              "char_end": null,
+                              "bbox": null
+                            }
+                          }
+                        ],
+                        "notices": [
+                          {
+                            "code": "ANALOGOUS_REFERENCE",
+                            "message": "API 형식 설명용 가상 자료입니다.",
+                            "field": null
+                          }
+                        ]
+                      },
+                      "error": null
+                    }
+                  },
+                  "answer_needs_context": {
+                    "value": {
+                      "answer_id": "00000000-0000-4000-8000-000000000004",
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "context_id": "00000000-0000-4000-8000-000000000002",
+                      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                      "reply_to_answer_id": null,
+                      "status": "needs_context",
+                      "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+                      "started_at": "2026-09-26T01:00:05Z",
+                      "finished_at": "2026-09-26T01:00:10Z",
+                      "result": {
+                        "summary": "현재 정보로는 장비에 맞는 정비 절차를 확정할 수 없습니다. 운전 상태와 등록된 장비 구성을 추가로 확인해야 합니다.",
+                        "claims": [
+                          {
+                            "claim_key": "observed-code",
+                            "type": "observation",
+                            "text": "수신 데이터에 예시 코드 DEMO-E01이 포함되어 있습니다.",
+                            "citation_ids": [],
+                            "event_evidence": [
+                              {
+                                "kind": "observed_code",
+                                "id": "00000000-0000-4000-8000-000000000013"
+                              }
+                            ]
+                          }
+                        ],
+                        "procedures": [],
+                        "follow_up_questions": [
+                          {
+                            "question_key": "cycle_state",
+                            "field": "operating_context.cycle_state",
+                            "prompt": "경보 발생 당시 용접 중이었나요?",
+                            "value_type": "string",
+                            "required": true,
+                            "options": [
+                              {
+                                "value": "welding",
+                                "label": "용접 중"
+                              },
+                              {
+                                "value": "non_welding",
+                                "label": "비용접 상태"
+                              }
+                            ],
+                            "unit": null
+                          }
+                        ],
+                        "citations": [],
+                        "notices": [
+                          {
+                            "code": "ASSET_CONFIG_UNRESOLVED",
+                            "message": "장비 구성 확인은 도메인 담당자의 별도 검토가 필요합니다.",
+                            "field": "asset_key"
+                          }
+                        ]
+                      },
+                      "error": null
+                    }
+                  },
+                  "answer_failed": {
+                    "value": {
+                      "answer_id": "00000000-0000-4000-8000-000000000004",
+                      "alert_id": "00000000-0000-4000-8000-000000000001",
+                      "context_id": "00000000-0000-4000-8000-000000000002",
+                      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+                      "reply_to_answer_id": null,
+                      "status": "failed",
+                      "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+                      "started_at": "2026-09-26T01:00:05Z",
+                      "finished_at": "2026-09-26T01:01:05Z",
+                      "result": null,
+                      "error": {
+                        "code": "LLM_TIMEOUT",
+                        "message": "답변 생성 시간이 초과되었습니다.",
+                        "retryable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "답변 실행 없음",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{revision_id}": {
+      "get": {
+        "operationId": "getDocumentPdf",
+        "summary": "봉인된 판본의 등록 원본 PDF 제공",
+        "tags": [
+          "Documents"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RevisionId"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          },
+          {
+            "$ref": "#/components/parameters/IfRange"
+          }
+        ],
+        "description": "원본 PDF에 한정한다. #page=N은 브라우저 fragment이며 서버 페이지 파라미터가 아니다. logical_block에는 PDF 점프를 만들지 않는다. 인증을 ETag/Range 처리보다 먼저 한다.",
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "경로/쿼리 형식 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "PDF 전체 바이트",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "inline; 안전한 filename/filename*"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "실제 제공 파일 SHA-256으로 만든 강한 ETag"
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "const": "private, no-cache"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "206": {
+            "description": "만족 가능한 단일 byte 범위",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "bytes START-END/TOTAL"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "const": "bytes"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "const": "private, no-cache"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "304": {
+            "description": "ETag 일치; 응답 body 없음",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "const": "private, no-cache"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "DOCUMENT_NOT_FOUND",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "DOCUMENT_NOT_PDF 또는 DOCUMENT_NOT_SEALED",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "RANGE_NOT_SATISFIABLE",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "bytes */TOTAL"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/answers/{id}/feedback": {
+      "post": {
+        "operationId": "createFeedback",
+        "summary": "답변 적절성 피드백 추가",
+        "tags": [
+          "Feedback"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AnswerId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackInput"
+              },
+              "examples": {
+                "feedback_request": {
+                  "value": {
+                    "verdict": "needs_revision",
+                    "error_categories": [
+                      "missing_context"
+                    ],
+                    "comment": "제어기 모델 확인도 먼저 요청하면 좋겠습니다.",
+                    "supersedes_id": null
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "reviewer는 인증 principal로 결정. 완료된 answered/needs_context/insufficient_evidence만 평가 가능. 수정은 동일 작성자·동일 답변의 supersedes_id로 새 행 생성.",
+        "responses": {
+          "401": {
+            "description": "인증 필요",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "Bearer"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "이 작업 또는 리소스에 대한 권한 부족",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "요청 제한",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "내부 오류",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "일시적으로 서비스 사용 불가",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 JSON/중복 JSON 키/필수 헤더 누락",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "요청 크기 초과",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "application/json이 아닌 요청 또는 지원하지 않는 Content-Encoding",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "필드 타입·범위·의미 검증 실패",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "피드백 생성; 멱등 재시도는 최초 응답 재생",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Idempotency-Replayed": {
+                "description": "서버 자체 재생 표시 헤더; 표준 헤더라는 의미가 아님",
+                "schema": {
+                  "type": "string",
+                  "description": "",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackCreated"
+                },
+                "examples": {
+                  "feedback_created": {
+                    "value": {
+                      "feedback_id": "00000000-0000-4000-8000-000000000006",
+                      "answer_id": "00000000-0000-4000-8000-000000000004",
+                      "reviewer_id": "00000000-0000-4000-8000-000000000005",
+                      "verdict": "needs_revision",
+                      "error_categories": [
+                        "missing_context"
+                      ],
+                      "comment": "제어기 모델 확인도 먼저 요청하면 좋겠습니다.",
+                      "supersedes_id": null,
+                      "created_at": "2026-09-26T01:02:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "답변 또는 정정 대상 피드백 없음",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ANSWER_NOT_REVIEWABLE, FEEDBACK_ALREADY_SUPERSEDED, FEEDBACK_TARGET_MISMATCH, IDEMPOTENCY_KEY_REUSED, REQUEST_IN_PROGRESS",
+            "headers": {
+              "X-Request-ID": {
+                "description": "서버 요청 추적 UUID",
+                "schema": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "description": ""
+                },
+                "description": "JSON 응답은 no-store"
+              },
+              "Retry-After": {
+                "description": "재조회/재시도까지 권장 대기 초",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "ML 생산자용 서비스 토큰 또는 사용자 토큰. 토큰 발급 방식은 이 계약 범위 밖이다."
+      }
+    },
+    "parameters": {
+      "AlertId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "description": "서버 alert_id; 송신 event_id가 아님",
+          "format": "uuid"
+        }
+      },
+      "AnswerId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "description": "answer_id = assistant_runs.id",
+          "format": "uuid"
+        }
+      },
+      "RevisionId": {
+        "name": "revision_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "description": "document_revisions.id",
+          "format": "uuid"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "description": "",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "description": "논리적 요청마다 새 키. 동일 재시도는 같은 키/같은 JSON. 보관 기간 최소 24시간."
+      },
+      "ContextQuery": {
+        "name": "context_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "description": "서버 UUID",
+          "format": "uuid"
+        },
+        "description": "이 경보에 속한 특정 봉인 context. 생략 시 기본 context. 선택한 context를 질문에 반드시 다시 전달."
+      },
+      "Range": {
+        "name": "Range",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "description": "단일 bytes 범위만 지원. 다중/해석 불가 Range는 무시하고 200 전체 파일, 만족 불가한 단일 byte 범위는 416."
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "description": "ETag 검증. 일치하면 304. 인증 후 평가하며 Range보다 먼저 평가."
+      },
+      "IfRange": {
+        "name": "If-Range",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "description": ""
+        },
+        "description": "서버가 발급한 강한 ETag만 지원. 불일치/날짜/약한 validator는 Range 무시 후 200."
+      }
+    },
+    "schemas": {
+      "FieldError": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "body",
+              "query",
+              "path",
+              "header"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "해당 위치의 필드 경로; body는 JSON Pointer"
+          },
+          "message": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "location",
+          "path",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 Problem Details 및 애플리케이션 확장 필드",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "문제 유형 URI; v1은 about:blank",
+            "const": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "description": "HTTP 상태의 짧은 제목"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string",
+            "description": "사용자에게 공개 가능한 오류 설명"
+          },
+          "instance": {
+            "type": "string",
+            "description": "오류가 발생한 요청 경로"
+          },
+          "code": {
+            "type": "string",
+            "description": "안정된 애플리케이션 오류 코드"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "요청 추적 UUID",
+            "format": "uuid"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "description": ""
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "code",
+          "request_id",
+          "errors"
+        ],
+        "additionalProperties": false
+      },
+      "WorkError": {
+        "type": "object",
+        "description": "조회 성공 응답 안에 포함되는 백그라운드 작업 실패",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": ""
+          },
+          "message": {
+            "type": "string",
+            "description": ""
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "additionalProperties": false
+      },
+      "Notice": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": ""
+          },
+          "message": {
+            "type": "string",
+            "description": ""
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "field"
+        ],
+        "additionalProperties": false
+      },
+      "ObservationWindow": {
+        "type": "object",
+        "description": "start <= end; 구간 의미는 양 끝 포함. 원시 시계열 전체를 전송하지 않는다.",
+        "properties": {
+          "start": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "additionalProperties": false
+      },
+      "CodeInput": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "code": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "namespace",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "ObservationSummary": {
+        "type": "object",
+        "description": "수치 요약; 적어도 한 필드 필수. min <= max, mean 범위 및 단위 의미는 서비스 검증.",
+        "properties": {
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "mean": {
+            "type": "number"
+          },
+          "stddev": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "minProperties": 1
+      },
+      "ObservationInput": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "feature_key": {
+            "type": "string",
+            "description": "원시 feature/센서 태그; 의미를 서버가 매핑",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ],
+                "description": "문자열/유한 숫자/boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quality": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "valid",
+              "missing",
+              "suspect",
+              "unknown"
+            ]
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "object",
+                "description": "실제 비교 기준선; normalizer 계약으로 별도 검사",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "raw_series_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "시계열 저장 참조. 이 값으로 임의 URL을 자동 요청하지 않는다.",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "feature_key",
+          "quality"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "quality": {
+                  "const": "valid"
+                }
+              },
+              "required": [
+                "quality"
+              ]
+            },
+            "then": {
+              "anyOf": [
+                {
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean"
+                      ],
+                      "description": "문자열/유한 숫자/boolean"
+                    }
+                  }
+                },
+                {
+                  "required": [
+                    "summary"
+                  ],
+                  "properties": {
+                    "summary": {
+                      "$ref": "#/components/schemas/ObservationSummary"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "ModelIdentity": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "version": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "name",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "MlTarget": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "code": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "namespace",
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "MlScore": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "probability",
+              "logit",
+              "anomaly_score",
+              "rule_score",
+              "other"
+            ]
+          },
+          "value": {
+            "type": "number",
+            "description": "NaN/Infinity 불가"
+          },
+          "calibration_status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "unknown",
+              "uncalibrated",
+              "calibrated"
+            ]
+          },
+          "calibration_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "value",
+          "calibration_status"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "probability"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "value": {
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "calibration_status": {
+                  "const": "calibrated"
+                }
+              },
+              "required": [
+                "calibration_status"
+              ]
+            },
+            "then": {
+              "required": [
+                "calibration_ref"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "probability"
+                },
+                "calibration_ref": {
+                  "type": "string",
+                  "description": "",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MlAssessmentInput": {
+        "type": "object",
+        "description": "classifications는 fault_type, hypothesis는 hypothesis, rule_trigger는 diagnostic_rule로 매핑. anomaly는 원인 엔티티에 직접 매핑하지 않는다.",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "classification",
+              "hypothesis",
+              "rule_trigger",
+              "anomaly"
+            ]
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelIdentity"
+          },
+          "run_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MlTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "score": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MlScore"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "details": {
+            "type": "object",
+            "description": "계약별 부가 JSON 객체",
+            "additionalProperties": true
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "",
+              "maxLength": 500
+            },
+            "description": "",
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "kind",
+          "model"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "classification",
+                    "hypothesis",
+                    "rule_trigger"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "target"
+              ],
+              "properties": {
+                "target": {
+                  "$ref": "#/components/schemas/MlTarget"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OperatingContext": {
+        "type": "object",
+        "description": "운전 맥락. 누락된 값은 unknown이며 false/0으로 추정하지 않는다.",
+        "properties": {
+          "cycle_state": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "welding",
+              "non_welding",
+              "unknown"
+            ]
+          },
+          "workpiece_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shift": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extensions": {
+            "type": "object",
+            "description": "송신자별 맥락; 자동 추론에는 승인된 필드만 사용",
+            "additionalProperties": true
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "AlertInput": {
+        "type": "object",
+        "description": "필수 배열은 데이터가 없으면 []. 미등록 장비/코드 자체는 수신 거절 사유가 아니다.",
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "description": "API 입력 envelope 버전",
+            "const": "1.0"
+          },
+          "producer_schema_version": {
+            "type": "string",
+            "description": "ML 송신 데이터 계약 버전",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "event_id": {
+            "type": "string",
+            "description": "생산자 내부 사건 ID; 다른 사건에는 재사용 금지",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "producer_key": {
+            "type": "string",
+            "description": "등록된 생산자 키; 인증 주체와 일치",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "asset_key": {
+            "type": "string",
+            "description": "현장 장비 키. MVP는 assets.asset_code와 매칭",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "occurred_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "observation_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationWindow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeInput"
+            },
+            "description": "",
+            "maxItems": 64
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationInput"
+            },
+            "description": "",
+            "maxItems": 128
+          },
+          "ml_assessments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MlAssessmentInput"
+            },
+            "description": "",
+            "maxItems": 64
+          },
+          "operating_context": {
+            "$ref": "#/components/schemas/OperatingContext"
+          }
+        },
+        "required": [
+          "schema_version",
+          "producer_schema_version",
+          "event_id",
+          "producer_key",
+          "asset_key",
+          "occurred_at",
+          "observed_codes",
+          "observations",
+          "ml_assessments"
+        ],
+        "additionalProperties": false
+      },
+      "Processing": {
+        "type": "object",
+        "description": "작업 상태이며 context의 mapped/partial 등 해석 결과와 다르다.",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "updated_at",
+          "error"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "$ref": "#/components/schemas/WorkError"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "error": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AlertAccepted": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "alert_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "event_id": {
+            "type": "string",
+            "description": ""
+          },
+          "producer_key": {
+            "type": "string",
+            "description": ""
+          },
+          "received_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "normalization": {
+            "$ref": "#/components/schemas/Processing"
+          },
+          "status_url": {
+            "type": "string",
+            "description": "GET /api/v1/alerts/{alert_id} 상대 경로"
+          }
+        },
+        "required": [
+          "alert_id",
+          "event_id",
+          "producer_key",
+          "received_at",
+          "duplicate",
+          "normalization",
+          "status_url"
+        ],
+        "additionalProperties": false
+      },
+      "AssetResolution": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "reported_key": {
+            "type": "string",
+            "description": ""
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asset_config_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "verification_status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "unverified",
+              "verified",
+              "unresolved"
+            ]
+          }
+        },
+        "required": [
+          "reported_key",
+          "asset_id",
+          "asset_config_id",
+          "verification_status"
+        ],
+        "additionalProperties": false
+      },
+      "CodeMapping": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "observed_codes.id",
+            "format": "uuid"
+          },
+          "input_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "mapped",
+              "unmapped",
+              "ambiguous"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "input_index",
+          "entity_id",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "ObservationMapping": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "observations.id",
+            "format": "uuid"
+          },
+          "input_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "feature_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binding_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "mapped",
+              "unmapped",
+              "invalid"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "input_index",
+          "feature_id",
+          "binding_id",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "MlMapping": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ml_assessments.id",
+            "format": "uuid"
+          },
+          "input_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "enum": [
+                  "fault_type",
+                  "hypothesis",
+                  "diagnostic_rule"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "input_index",
+          "target_entity_id",
+          "target_kind"
+        ],
+        "additionalProperties": false
+      },
+      "AlertContext": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "knowledge_release_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "knowledge_version": {
+            "type": "string",
+            "description": ""
+          },
+          "normalizer_version": {
+            "type": "string",
+            "description": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "mapped",
+              "partial",
+              "unmapped",
+              "invalid"
+            ]
+          },
+          "asset": {
+            "$ref": "#/components/schemas/AssetResolution"
+          },
+          "code_mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CodeMapping"
+            },
+            "description": ""
+          },
+          "observation_mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservationMapping"
+            },
+            "description": ""
+          },
+          "ml_mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MlMapping"
+            },
+            "description": ""
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notice"
+            },
+            "description": ""
+          },
+          "sealed_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "context_id",
+          "knowledge_release_id",
+          "knowledge_version",
+          "normalizer_version",
+          "status",
+          "asset",
+          "code_mappings",
+          "observation_mappings",
+          "ml_mappings",
+          "warnings",
+          "sealed_at"
+        ],
+        "additionalProperties": false
+      },
+      "ScenarioMatch": {
+        "type": "object",
+        "description": "관련 시나리오 후보이며 원인 확정이나 발생 확률을 뜻하지 않는다.",
+        "properties": {
+          "scenario_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "namespace": {
+            "type": "string",
+            "description": ""
+          },
+          "code": {
+            "type": "string",
+            "description": ""
+          },
+          "label": {
+            "type": "string",
+            "description": ""
+          },
+          "match_methods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "observed_code",
+                "ml_classification",
+                "rule_trigger",
+                "pattern",
+                "operating_context"
+              ]
+            },
+            "description": "",
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "relation_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "서버 UUID",
+              "format": "uuid"
+            },
+            "description": ""
+          },
+          "explanation": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "scenario_id",
+          "namespace",
+          "code",
+          "label",
+          "match_methods",
+          "relation_ids",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "ScenarioMatches": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "not_evaluated",
+              "matched",
+              "no_match",
+              "failed"
+            ]
+          },
+          "matcher_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScenarioMatch"
+            },
+            "description": "",
+            "maxItems": 10
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "matcher_version",
+          "items",
+          "error"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "matched"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "items": {
+                  "minItems": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "items": {
+                  "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "$ref": "#/components/schemas/WorkError"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "error": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "not_evaluated"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "matcher_version": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "matcher_version": {
+                  "type": "string",
+                  "description": "",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AlertDetails": {
+        "type": "object",
+        "description": "submitted_event는 최초 수신 JSON 객체. 원본 bytea 및 내부 파일 경로는 반환하지 않는다.",
+        "properties": {
+          "alert_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "received_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "submitted_event": {
+            "$ref": "#/components/schemas/AlertInput"
+          },
+          "normalization": {
+            "$ref": "#/components/schemas/Processing"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AlertContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "related_scenarios": {
+            "$ref": "#/components/schemas/ScenarioMatches"
+          }
+        },
+        "required": [
+          "alert_id",
+          "received_at",
+          "submitted_event",
+          "normalization",
+          "context",
+          "related_scenarios"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "normalization": {
+                  "properties": {
+                    "status": {
+                      "const": "succeeded"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              },
+              "required": [
+                "normalization"
+              ]
+            },
+            "then": {
+              "properties": {
+                "context": {
+                  "$ref": "#/components/schemas/AlertContext"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "context": {
+                  "type": "null"
+                },
+                "related_scenarios": {
+                  "properties": {
+                    "status": {
+                      "const": "not_evaluated"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ContextAnswer": {
+        "type": "object",
+        "description": "이전 답변이 요청한 구조화 질문의 응답. 유형·선택지·단위는 그 질문 계약에 맞춰 검사한다.",
+        "properties": {
+          "question_key": {
+            "type": "string",
+            "description": "",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ],
+            "description": "문자열/유한 숫자/boolean"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "question_key",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "QuestionInput": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "description": "GET alerts에서 받은 봉인된 context ID",
+            "format": "uuid"
+          },
+          "question": {
+            "type": "string",
+            "description": "공백만 있는 질문 불가",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reply_to_answer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context_answers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContextAnswer"
+            },
+            "description": "",
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "context_id",
+          "question"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "context_answers"
+              ],
+              "properties": {
+                "context_answers": {
+                  "minItems": 1
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "reply_to_answer_id"
+              ],
+              "properties": {
+                "reply_to_answer_id": {
+                  "type": "string",
+                  "description": "서버 UUID",
+                  "format": "uuid"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "QuestionAccepted": {
+        "type": "object",
+        "description": "최초 접수 응답을 멱등 재전송한다. 현재 상태는 status_url로 조회한다.",
+        "properties": {
+          "answer_id": {
+            "type": "string",
+            "description": "assistant_runs.id",
+            "format": "uuid"
+          },
+          "alert_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "context_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "knowledge_release_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "pending"
+            ]
+          },
+          "status_url": {
+            "type": "string",
+            "description": ""
+          },
+          "created_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "answer_id",
+          "alert_id",
+          "context_id",
+          "knowledge_release_id",
+          "status",
+          "status_url",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "FollowUpOption": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ],
+            "description": "문자열/유한 숫자/boolean"
+          },
+          "label": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "value",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "FollowUpQuestion": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "question_key": {
+            "type": "string",
+            "description": ""
+          },
+          "field": {
+            "type": "string",
+            "description": "승인된 맥락 필드 키; 장비 구성/적용성 승인 정보를 덮어쓸 수 없음"
+          },
+          "prompt": {
+            "type": "string",
+            "description": ""
+          },
+          "value_type": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FollowUpOption"
+            },
+            "description": ""
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "question_key",
+          "field",
+          "prompt",
+          "value_type",
+          "required",
+          "options",
+          "unit"
+        ],
+        "additionalProperties": false
+      },
+      "Locator": {
+        "type": "object",
+        "description": "page_number는 실제 PDF 페이지 또는 논리 블록. PDF 페이지는 1부터 시작. offset은 페이지 Unicode code point 기준 [start,end).",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "pdf_page",
+              "logical_block"
+            ]
+          },
+          "page_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "printed_page_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "char_start": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "char_end": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "description": "",
+                "minItems": 4,
+                "maxItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "page_number",
+          "printed_page_label",
+          "char_start",
+          "char_end",
+          "bbox"
+        ],
+        "additionalProperties": false
+      },
+      "Citation": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "citation_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "claim_key": {
+            "type": "string",
+            "description": ""
+          },
+          "section_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "section_title": {
+            "type": "string",
+            "description": ""
+          },
+          "section_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "span_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "document_revision_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "document_title": {
+            "type": "string",
+            "description": ""
+          },
+          "document_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "PDF인 경우에만 이 API의 상대 경로"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "quote": {
+            "type": "string",
+            "description": "span 원문에서 서버가 추출한 인용문"
+          },
+          "reference_scope": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "applicable",
+              "analogous",
+              "comparison",
+              "unknown"
+            ]
+          },
+          "locator": {
+            "$ref": "#/components/schemas/Locator"
+          }
+        },
+        "required": [
+          "citation_id",
+          "claim_key",
+          "section_id",
+          "section_title",
+          "section_number",
+          "span_id",
+          "document_revision_id",
+          "document_title",
+          "document_url",
+          "quote",
+          "reference_scope",
+          "locator"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "locator": {
+                  "properties": {
+                    "kind": {
+                      "const": "logical_block"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              },
+              "required": [
+                "locator"
+              ]
+            },
+            "then": {
+              "properties": {
+                "document_url": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EventEvidenceRef": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "observed_code",
+              "observation",
+              "ml_assessment"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "Claim": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "claim_key": {
+            "type": "string",
+            "description": ""
+          },
+          "type": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "observation",
+              "hypothesis",
+              "manual_fact",
+              "procedure_guidance",
+              "limitation"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": ""
+          },
+          "citation_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "서버 UUID",
+              "format": "uuid"
+            },
+            "description": ""
+          },
+          "event_evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventEvidenceRef"
+            },
+            "description": ""
+          }
+        },
+        "required": [
+          "claim_key",
+          "type",
+          "text",
+          "citation_ids",
+          "event_evidence"
+        ],
+        "additionalProperties": false
+      },
+      "ProcedureStep": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "step_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "claim_key": {
+            "type": "string",
+            "description": "claims의 procedure_guidance 항목 키"
+          },
+          "instruction": {
+            "type": "string",
+            "description": ""
+          },
+          "expected_result": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "condition_summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "원문 분기 조건의 검토된 한국어 표현"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "condition_state": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "unconditional",
+              "satisfied"
+            ]
+          },
+          "citation_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "서버 UUID",
+              "format": "uuid"
+            },
+            "description": "",
+            "minItems": 1
+          }
+        },
+        "required": [
+          "step_number",
+          "claim_key",
+          "instruction",
+          "expected_result",
+          "condition_summary",
+          "condition_state",
+          "citation_ids"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "condition_state": {
+                  "const": "satisfied"
+                }
+              },
+              "required": [
+                "condition_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "condition_summary": {
+                  "type": "string",
+                  "description": "",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ProcedureRecommendation": {
+        "type": "object",
+        "description": "검토된 applicable 근거와 조건 충족이 확인된 절차만 포함. 자동 장비 제어 명령은 포함하지 않는다.",
+        "properties": {
+          "procedure_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": ""
+          },
+          "required_role": {
+            "type": "string",
+            "description": ""
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": ""
+            },
+            "description": ""
+          },
+          "applicability_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "서버 UUID",
+              "format": "uuid"
+            },
+            "description": "",
+            "minItems": 1
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcedureStep"
+            },
+            "description": "",
+            "minItems": 1
+          }
+        },
+        "required": [
+          "procedure_id",
+          "title",
+          "required_role",
+          "preconditions",
+          "applicability_ids",
+          "steps"
+        ],
+        "additionalProperties": false
+      },
+      "AnswerResult": {
+        "type": "object",
+        "description": "문서 절·페이지는 citations 안에 포함. needs_context/insufficient_evidence에서는 procedures=[]; 근거 부족을 시스템 오류로 취급하지 않는다.",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": ""
+          },
+          "claims": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Claim"
+            },
+            "description": ""
+          },
+          "procedures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcedureRecommendation"
+            },
+            "description": ""
+          },
+          "follow_up_questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FollowUpQuestion"
+            },
+            "description": ""
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "description": ""
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notice"
+            },
+            "description": ""
+          }
+        },
+        "required": [
+          "summary",
+          "claims",
+          "procedures",
+          "follow_up_questions",
+          "citations",
+          "notices"
+        ],
+        "additionalProperties": false
+      },
+      "AnswerDetails": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "answer_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "alert_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "context_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "knowledge_release_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "reply_to_answer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "pending",
+              "running",
+              "answered",
+              "needs_context",
+              "insufficient_evidence",
+              "failed"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "description": ""
+          },
+          "started_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnswerResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "answer_id",
+          "alert_id",
+          "context_id",
+          "knowledge_release_id",
+          "reply_to_answer_id",
+          "status",
+          "question",
+          "started_at",
+          "finished_at",
+          "result",
+          "error"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending",
+                    "running"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "null"
+                },
+                "finished_at": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "answered",
+                    "needs_context",
+                    "insufficient_evidence"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "$ref": "#/components/schemas/AnswerResult"
+                },
+                "error": {
+                  "type": "null"
+                },
+                "finished_at": {
+                  "type": "string",
+                  "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "failed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "type": "null"
+                },
+                "error": {
+                  "$ref": "#/components/schemas/WorkError"
+                },
+                "finished_at": {
+                  "type": "string",
+                  "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "needs_context",
+                    "insufficient_evidence"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "properties": {
+                    "procedures": {
+                      "maxItems": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "needs_context"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "properties": {
+                    "follow_up_questions": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "FeedbackInput": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "acceptable",
+              "needs_revision",
+              "incorrect"
+            ]
+          },
+          "error_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "wrong_equipment",
+                "wrong_code_mapping",
+                "wrong_source",
+                "unsupported_claim",
+                "missing_context",
+                "incorrect_procedure",
+                "incorrect_citation",
+                "other"
+              ]
+            },
+            "description": "",
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "동일 답변에 작성자가 이전에 남긴 피드백",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "verdict",
+          "error_categories"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "verdict": {
+                  "const": "acceptable"
+                }
+              },
+              "required": [
+                "verdict"
+              ]
+            },
+            "then": {
+              "properties": {
+                "error_categories": {
+                  "maxItems": 0
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "needs_revision",
+                    "incorrect"
+                  ]
+                }
+              },
+              "required": [
+                "verdict"
+              ]
+            },
+            "then": {
+              "properties": {
+                "error_categories": {
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "error_categories": {
+                  "contains": {
+                    "const": "other"
+                  }
+                }
+              },
+              "required": [
+                "error_categories"
+              ]
+            },
+            "then": {
+              "required": [
+                "comment"
+              ],
+              "properties": {
+                "comment": {
+                  "type": "string",
+                  "description": "",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              }
+            }
+          }
+        ]
+      },
+      "FeedbackCreated": {
+        "type": "object",
+        "description": "",
+        "properties": {
+          "feedback_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "answer_id": {
+            "type": "string",
+            "description": "서버 UUID",
+            "format": "uuid"
+          },
+          "reviewer_id": {
+            "type": "string",
+            "description": "인증 principal에서 결정",
+            "format": "uuid"
+          },
+          "verdict": {
+            "type": "string",
+            "description": "",
+            "enum": [
+              "acceptable",
+              "needs_revision",
+              "incorrect"
+            ]
+          },
+          "error_categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "",
+              "enum": [
+                "wrong_equipment",
+                "wrong_code_mapping",
+                "wrong_source",
+                "unsupported_claim",
+                "missing_context",
+                "incorrect_procedure",
+                "incorrect_citation",
+                "other"
+              ]
+            },
+            "description": ""
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": ""
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "서버 UUID",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "RFC 3339 시각; 요청에는 시간대 필수, 응답은 UTC",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "feedback_id",
+          "answer_id",
+          "reviewer_id",
+          "verdict",
+          "error_categories",
+          "comment",
+          "supersedes_id",
+          "created_at"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

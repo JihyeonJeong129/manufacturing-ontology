@@ -1,0 +1,129 @@
+# RSW 정비 안내 온톨로지 TBox (rsw-ontology-1.0)
+# PostgreSQL의 동결된 지식 배포본(knowledge_releases)을 RDF로 표현하기 위한 어휘.
+# - 개념 IRI: urn:rsw:entity:<uuid>  (knowledge_entities.id)
+# - 관계는 조건·검토·경험적 상태를 잃지 않도록 관계 노드(rsw:Relation)로 재구체화한다.
+#   subject-predicate-object 직접 삼중항은 생성하지 않는다.
+# - maps_to는 출처별 검토된 매핑이며 owl:sameAs가 아니다.
+# - 이 파일의 SHA-256은 knowledge_releases.ontology_sha256에 기록된다.
+@prefix rsw:  <urn:rsw:ontology#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+<urn:rsw:ontology> a owl:Ontology ;
+    owl:versionInfo "rsw-ontology-1.0" ;
+    rdfs:label "RSW maintenance guidance ontology"@en , "RSW 정비 안내 온톨로지"@ko .
+
+# ---------------------------------------------------------------- classes
+rsw:KnowledgeRelease a owl:Class ; rdfs:label "지식 배포본"@ko .
+rsw:KnowledgeEntity  a owl:Class ; rdfs:label "지식 개념"@ko ;
+    rdfs:comment "배포본에 포함된 개념 버전. 지속 ID는 knowledge_entities.id"@ko .
+rsw:ComponentType    a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "부품 유형"@ko .
+rsw:Scenario         a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "대응 시나리오"@ko .
+rsw:FaultType        a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "고장 분류"@ko .
+rsw:AlarmCode        a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "경보 코드"@ko .
+rsw:DiagnosticRule   a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "진단 규칙"@ko .
+rsw:Hypothesis       a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "원인 후보"@ko ;
+    rdfs:comment "확정 원인이 아니다. 확인 결과는 maintenance_outcomes에 별도 기록한다."@ko .
+rsw:EvidencePattern  a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "근거 패턴"@ko .
+rsw:Feature          a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "센서/특징"@ko .
+rsw:DocumentSection  a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "원문 절"@ko .
+rsw:Procedure        a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "절차"@ko .
+rsw:NumericSpec      a owl:Class ; rdfs:subClassOf rsw:KnowledgeEntity ; rdfs:label "수치 사양"@ko .
+
+rsw:Relation         a owl:Class ; rdfs:label "조건부 지식 관계"@ko ;
+    rdfs:comment "재구체화된 관계 노드. 조건·장비 범위·경험적 상태·검토 상태를 가진다."@ko .
+rsw:RelationEvidence a owl:Class ; rdfs:label "관계 근거"@ko .
+rsw:Applicability    a owl:Class ; rdfs:label "장비 적용성"@ko .
+rsw:ProcedureStep    a owl:Class ; rdfs:label "절차 단계"@ko .
+rsw:KnowledgeConflict a owl:Class ; rdfs:label "근거 충돌"@ko .
+rsw:DocumentRevision a owl:Class ; rdfs:label "문서 판본"@ko .
+rsw:AssetConfig      a owl:Class ; rdfs:label "장비 구성"@ko .
+
+# ---------------------------------------------------------------- relation predicates
+# relation_rules의 predicate 이름과 1:1 대응. 관계 노드의 rsw:predicate 값으로만 사용한다.
+rsw:relatedFault      a owl:ObjectProperty ; rsw:predicateName "related_fault" ;      rdfs:domain rsw:Scenario ;       rdfs:range rsw:FaultType .
+rsw:raisesHypothesis  a owl:ObjectProperty ; rsw:predicateName "raises_hypothesis" ;  rdfs:domain rsw:Scenario ;       rdfs:range rsw:Hypothesis .
+rsw:hasPattern        a owl:ObjectProperty ; rsw:predicateName "has_pattern" ;        rdfs:domain rsw:Hypothesis ;     rdfs:range rsw:EvidencePattern .
+rsw:suggests          a owl:ObjectProperty ; rsw:predicateName "suggests" ;           rdfs:domain rsw:EvidencePattern ; rdfs:range rsw:Hypothesis .
+rsw:mayContributeTo   a owl:ObjectProperty ; rsw:predicateName "may_contribute_to" ;  rdfs:domain rsw:Hypothesis ;     rdfs:range rsw:FaultType .
+rsw:mapsTo            a owl:ObjectProperty ; rsw:predicateName "maps_to" ;            rdfs:domain rsw:AlarmCode ;      rdfs:range rsw:FaultType ;
+    rdfs:comment "출처별 검토된 매핑. owl:sameAs가 아니다."@ko .
+rsw:triggers          a owl:ObjectProperty ; rsw:predicateName "triggers" ;           rdfs:domain rsw:DiagnosticRule ; rdfs:range rsw:Scenario .
+rsw:hasProcedure      a owl:ObjectProperty ; rsw:predicateName "has_procedure" ;      rdfs:domain rsw:Scenario ;       rdfs:range rsw:Procedure .
+rsw:checksHypothesis  a owl:ObjectProperty ; rsw:predicateName "checks_hypothesis" ;  rdfs:domain rsw:Procedure ;      rdfs:range rsw:Hypothesis .
+rsw:usesSpec          a owl:ObjectProperty ; rsw:predicateName "uses_spec" ;          rdfs:domain rsw:Procedure ;      rdfs:range rsw:NumericSpec .
+rsw:concernsComponent a owl:ObjectProperty ; rsw:predicateName "concerns_component" ; rdfs:range rsw:ComponentType .
+rsw:documentedIn      a owl:ObjectProperty ; rsw:predicateName "documented_in" ;      rdfs:range rsw:DocumentSection .
+
+# ---------------------------------------------------------------- structural properties
+rsw:predicateName a owl:AnnotationProperty .
+rsw:inRelease   a owl:ObjectProperty ; rdfs:range rsw:KnowledgeRelease .
+rsw:subject     a owl:ObjectProperty ; rdfs:domain rsw:Relation ; rdfs:range rsw:KnowledgeEntity .
+rsw:object      a owl:ObjectProperty ; rdfs:domain rsw:Relation ; rdfs:range rsw:KnowledgeEntity .
+rsw:predicate   a owl:ObjectProperty ; rdfs:domain rsw:Relation .
+rsw:scopeAssetConfig a owl:ObjectProperty ; rdfs:domain rsw:Relation ; rdfs:range rsw:AssetConfig .
+rsw:hasEvidence a owl:ObjectProperty ; rdfs:domain rsw:Relation ; rdfs:range rsw:RelationEvidence .
+rsw:evidenceSection a owl:ObjectProperty ; rdfs:range rsw:DocumentSection .
+rsw:evidenceSpan a owl:DatatypeProperty .
+rsw:content     a owl:ObjectProperty ; rdfs:domain rsw:Applicability ; rdfs:range rsw:KnowledgeEntity .
+rsw:assetConfig a owl:ObjectProperty ; rdfs:range rsw:AssetConfig .
+rsw:hasStep     a owl:ObjectProperty ; rdfs:domain rsw:Procedure ; rdfs:range rsw:ProcedureStep .
+rsw:sourceSection a owl:ObjectProperty ; rdfs:range rsw:DocumentSection .
+rsw:documentRevision a owl:ObjectProperty ; rdfs:domain rsw:DocumentSection ; rdfs:range rsw:DocumentRevision .
+rsw:affectedEntity a owl:ObjectProperty ; rdfs:domain rsw:KnowledgeConflict .
+rsw:leftSection  a owl:ObjectProperty ; rdfs:domain rsw:KnowledgeConflict ; rdfs:range rsw:DocumentSection .
+rsw:rightSection a owl:ObjectProperty ; rdfs:domain rsw:KnowledgeConflict ; rdfs:range rsw:DocumentSection .
+
+rsw:kind a owl:DatatypeProperty .
+rsw:namespace a owl:DatatypeProperty .
+rsw:localCode a owl:DatatypeProperty .
+rsw:reviewStatus a owl:DatatypeProperty .
+rsw:empiricalStatus a owl:DatatypeProperty .
+rsw:evidenceKind a owl:DatatypeProperty .
+rsw:evidenceRole a owl:DatatypeProperty .
+rsw:explanation a owl:DatatypeProperty .
+rsw:conditions a owl:DatatypeProperty .
+rsw:referenceScope a owl:DatatypeProperty .
+rsw:componentScope a owl:DatatypeProperty .
+rsw:reviewBasis a owl:DatatypeProperty .
+rsw:scenarioKind a owl:DatatypeProperty .
+rsw:questionExamples a owl:DatatypeProperty .
+rsw:requiredContext a owl:DatatypeProperty .
+rsw:featureKind a owl:DatatypeProperty .
+rsw:valueType a owl:DatatypeProperty .
+rsw:unit a owl:DatatypeProperty .
+rsw:unitStatus a owl:DatatypeProperty .
+rsw:definitionStatus a owl:DatatypeProperty .
+rsw:patternKind a owl:DatatypeProperty .
+rsw:procedureKind a owl:DatatypeProperty .
+rsw:preconditions a owl:DatatypeProperty .
+rsw:requiredRole a owl:DatatypeProperty .
+rsw:stepNumber a owl:DatatypeProperty .
+rsw:instruction a owl:DatatypeProperty .
+rsw:expectedResult a owl:DatatypeProperty .
+rsw:branchCondition a owl:DatatypeProperty .
+rsw:quantity a owl:DatatypeProperty .
+rsw:comparison a owl:DatatypeProperty .
+rsw:valueLow a owl:DatatypeProperty .
+rsw:valueHigh a owl:DatatypeProperty .
+rsw:originalValueText a owl:DatatypeProperty .
+rsw:specKind a owl:DatatypeProperty .
+rsw:interpretationStatus a owl:DatatypeProperty .
+rsw:title a owl:DatatypeProperty .
+rsw:sectionKey a owl:DatatypeProperty .
+rsw:sectionNumber a owl:DatatypeProperty .
+rsw:textSha256 a owl:DatatypeProperty .
+rsw:conflictStatus a owl:DatatypeProperty .
+rsw:description a owl:DatatypeProperty .
+rsw:version a owl:DatatypeProperty .
+rsw:ontologyVersion a owl:DatatypeProperty .
+rsw:shapesVersion a owl:DatatypeProperty .
+rsw:builderVersion a owl:DatatypeProperty .
+rsw:validationContractVersion a owl:DatatypeProperty .
+rsw:releaseStatus a owl:DatatypeProperty .
+rsw:sourceSha256 a owl:DatatypeProperty .
+rsw:sealed a owl:DatatypeProperty .
+rsw:verificationStatus a owl:DatatypeProperty .
+rsw:alias a owl:DatatypeProperty .

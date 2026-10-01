@@ -1,0 +1,409 @@
+{
+  "alert_request": {
+    "schema_version": "1.0",
+    "producer_schema_version": "demo-ml-v1",
+    "event_id": "demo-event-0001",
+    "producer_key": "demo-ml",
+    "asset_key": "RSW-DEMO-001",
+    "occurred_at": "2026-09-26T01:00:00Z",
+    "observation_window": {
+      "start": "2026-09-26T00:59:50Z",
+      "end": "2026-09-26T01:00:00Z"
+    },
+    "observed_codes": [
+      {
+        "namespace": "demo.dataset.raw_alarm",
+        "code": "DEMO-E01",
+        "observed_at": "2026-09-26T01:00:00Z"
+      }
+    ],
+    "observations": [
+      {
+        "feature_key": "demo.cycle_duration",
+        "value": 1.92,
+        "unit": "s",
+        "quality": "valid",
+        "observed_at": "2026-09-26T01:00:00Z"
+      }
+    ],
+    "ml_assessments": [
+      {
+        "kind": "classification",
+        "model": {
+          "name": "demo-classifier",
+          "version": "demo-v1"
+        },
+        "target": {
+          "namespace": "demo.dataset.fault_class",
+          "code": "DEMO-F01"
+        },
+        "score": {
+          "kind": "probability",
+          "value": 0.82,
+          "calibration_status": "uncalibrated"
+        }
+      }
+    ],
+    "operating_context": {
+      "cycle_state": "unknown"
+    }
+  },
+  "alert_created": {
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "event_id": "demo-event-0001",
+    "producer_key": "demo-ml",
+    "received_at": "2026-09-26T01:00:00Z",
+    "duplicate": false,
+    "normalization": {
+      "status": "queued",
+      "updated_at": "2026-09-26T01:00:00Z",
+      "error": null
+    },
+    "status_url": "/api/v1/alerts/00000000-0000-4000-8000-000000000001"
+  },
+  "alert_duplicate": {
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "event_id": "demo-event-0001",
+    "producer_key": "demo-ml",
+    "received_at": "2026-09-26T01:00:00Z",
+    "duplicate": true,
+    "normalization": {
+      "status": "queued",
+      "updated_at": "2026-09-26T01:00:00Z",
+      "error": null
+    },
+    "status_url": "/api/v1/alerts/00000000-0000-4000-8000-000000000001"
+  },
+  "alert_details": {
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "received_at": "2026-09-26T01:00:00Z",
+    "submitted_event": {
+      "schema_version": "1.0",
+      "producer_schema_version": "demo-ml-v1",
+      "event_id": "demo-event-0001",
+      "producer_key": "demo-ml",
+      "asset_key": "RSW-DEMO-001",
+      "occurred_at": "2026-09-26T01:00:00Z",
+      "observation_window": {
+        "start": "2026-09-26T00:59:50Z",
+        "end": "2026-09-26T01:00:00Z"
+      },
+      "observed_codes": [
+        {
+          "namespace": "demo.dataset.raw_alarm",
+          "code": "DEMO-E01",
+          "observed_at": "2026-09-26T01:00:00Z"
+        }
+      ],
+      "observations": [
+        {
+          "feature_key": "demo.cycle_duration",
+          "value": 1.92,
+          "unit": "s",
+          "quality": "valid",
+          "observed_at": "2026-09-26T01:00:00Z"
+        }
+      ],
+      "ml_assessments": [
+        {
+          "kind": "classification",
+          "model": {
+            "name": "demo-classifier",
+            "version": "demo-v1"
+          },
+          "target": {
+            "namespace": "demo.dataset.fault_class",
+            "code": "DEMO-F01"
+          },
+          "score": {
+            "kind": "probability",
+            "value": 0.82,
+            "calibration_status": "uncalibrated"
+          }
+        }
+      ],
+      "operating_context": {
+        "cycle_state": "unknown"
+      }
+    },
+    "normalization": {
+      "status": "succeeded",
+      "updated_at": "2026-09-26T01:00:01Z",
+      "error": null
+    },
+    "context": {
+      "context_id": "00000000-0000-4000-8000-000000000002",
+      "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+      "knowledge_version": "demo-kb-v1",
+      "normalizer_version": "demo-normalizer-v1",
+      "status": "partial",
+      "asset": {
+        "reported_key": "RSW-DEMO-001",
+        "asset_id": "00000000-0000-4000-8000-000000000007",
+        "asset_config_id": null,
+        "verification_status": "unresolved"
+      },
+      "code_mappings": [
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "input_index": 0,
+          "entity_id": null,
+          "status": "unmapped"
+        }
+      ],
+      "observation_mappings": [
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "input_index": 0,
+          "feature_id": null,
+          "binding_id": null,
+          "status": "unmapped"
+        }
+      ],
+      "ml_mappings": [
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "input_index": 0,
+          "target_entity_id": null,
+          "target_kind": null
+        }
+      ],
+      "warnings": [
+        {
+          "code": "ASSET_CONFIG_UNRESOLVED",
+          "message": "예시 장비의 구성 정보를 확인해야 합니다.",
+          "field": "asset_key"
+        }
+      ],
+      "sealed_at": "2026-09-26T01:00:01Z"
+    },
+    "related_scenarios": {
+      "status": "no_match",
+      "matcher_version": "demo-matcher-v1",
+      "items": [],
+      "error": null
+    }
+  },
+  "question_request": {
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요."
+  },
+  "question_accepted": {
+    "answer_id": "00000000-0000-4000-8000-000000000004",
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+    "status": "pending",
+    "status_url": "/api/v1/answers/00000000-0000-4000-8000-000000000004",
+    "created_at": "2026-09-26T01:00:05Z"
+  },
+  "answer_pending": {
+    "answer_id": "00000000-0000-4000-8000-000000000004",
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+    "reply_to_answer_id": null,
+    "status": "pending",
+    "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+    "started_at": "2026-09-26T01:00:05Z",
+    "finished_at": null,
+    "result": null,
+    "error": null
+  },
+  "answer_needs_context": {
+    "answer_id": "00000000-0000-4000-8000-000000000004",
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+    "reply_to_answer_id": null,
+    "status": "needs_context",
+    "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+    "started_at": "2026-09-26T01:00:05Z",
+    "finished_at": "2026-09-26T01:00:10Z",
+    "result": {
+      "summary": "현재 정보로는 장비에 맞는 정비 절차를 확정할 수 없습니다. 운전 상태와 등록된 장비 구성을 추가로 확인해야 합니다.",
+      "claims": [
+        {
+          "claim_key": "observed-code",
+          "type": "observation",
+          "text": "수신 데이터에 예시 코드 DEMO-E01이 포함되어 있습니다.",
+          "citation_ids": [],
+          "event_evidence": [
+            {
+              "kind": "observed_code",
+              "id": "00000000-0000-4000-8000-000000000013"
+            }
+          ]
+        }
+      ],
+      "procedures": [],
+      "follow_up_questions": [
+        {
+          "question_key": "cycle_state",
+          "field": "operating_context.cycle_state",
+          "prompt": "경보 발생 당시 용접 중이었나요?",
+          "value_type": "string",
+          "required": true,
+          "options": [
+            {
+              "value": "welding",
+              "label": "용접 중"
+            },
+            {
+              "value": "non_welding",
+              "label": "비용접 상태"
+            }
+          ],
+          "unit": null
+        }
+      ],
+      "citations": [],
+      "notices": [
+        {
+          "code": "ASSET_CONFIG_UNRESOLVED",
+          "message": "장비 구성 확인은 도메인 담당자의 별도 검토가 필요합니다.",
+          "field": "asset_key"
+        }
+      ]
+    },
+    "error": null
+  },
+  "answer_failed": {
+    "answer_id": "00000000-0000-4000-8000-000000000004",
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+    "reply_to_answer_id": null,
+    "status": "failed",
+    "question": "이 경보가 의미하는 것과 먼저 확인할 정보를 알려주세요.",
+    "started_at": "2026-09-26T01:00:05Z",
+    "finished_at": "2026-09-26T01:01:05Z",
+    "result": null,
+    "error": {
+      "code": "LLM_TIMEOUT",
+      "message": "답변 생성 시간이 초과되었습니다.",
+      "retryable": true
+    }
+  },
+  "followup_request": {
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "question": "비용접 상태에서 발생했습니다. 이 정보를 반영해 설명해주세요.",
+    "reply_to_answer_id": "00000000-0000-4000-8000-000000000004",
+    "context_answers": [
+      {
+        "question_key": "cycle_state",
+        "value": "non_welding",
+        "unit": null
+      }
+    ]
+  },
+  "citation_example": {
+    "citation_id": "00000000-0000-4000-8000-000000000012",
+    "claim_key": "example-manual-scope",
+    "section_id": "00000000-0000-4000-8000-000000000009",
+    "section_title": "예시 적용 범위",
+    "section_number": "2.1",
+    "span_id": "00000000-0000-4000-8000-000000000010",
+    "document_revision_id": "00000000-0000-4000-8000-000000000011",
+    "document_title": "형식 설명용 가상 매뉴얼",
+    "document_url": "/api/v1/documents/00000000-0000-4000-8000-000000000011",
+    "quote": "이 인용문은 API 형식 설명용 가상 데이터이며 실제 매뉴얼의 내용이 아닙니다.",
+    "reference_scope": "analogous",
+    "locator": {
+      "kind": "pdf_page",
+      "page_number": 12,
+      "printed_page_label": "10",
+      "char_start": null,
+      "char_end": null,
+      "bbox": null
+    }
+  },
+  "answer_answered": {
+    "answer_id": "00000000-0000-4000-8000-000000000016",
+    "alert_id": "00000000-0000-4000-8000-000000000001",
+    "context_id": "00000000-0000-4000-8000-000000000002",
+    "knowledge_release_id": "00000000-0000-4000-8000-000000000003",
+    "reply_to_answer_id": null,
+    "status": "answered",
+    "question": "형식 설명용 가상 매뉴얼의 예시 적용 범위 절을 보여주세요.",
+    "started_at": "2026-09-26T01:00:05Z",
+    "finished_at": "2026-09-26T01:00:10Z",
+    "result": {
+      "summary": "가상 매뉴얼의 예시 절을 표시합니다. 해당 자료는 유사 참고 자료로 분류되어 정비 절차 안내에 사용하지 않습니다.",
+      "claims": [
+        {
+          "claim_key": "example-manual-scope",
+          "type": "manual_fact",
+          "text": "이 인용문은 API 형식 설명용 가상 데이터이며 실제 매뉴얼의 내용이 아닙니다.",
+          "citation_ids": [
+            "00000000-0000-4000-8000-000000000012"
+          ],
+          "event_evidence": []
+        }
+      ],
+      "procedures": [],
+      "follow_up_questions": [],
+      "citations": [
+        {
+          "citation_id": "00000000-0000-4000-8000-000000000012",
+          "claim_key": "example-manual-scope",
+          "section_id": "00000000-0000-4000-8000-000000000009",
+          "section_title": "예시 적용 범위",
+          "section_number": "2.1",
+          "span_id": "00000000-0000-4000-8000-000000000010",
+          "document_revision_id": "00000000-0000-4000-8000-000000000011",
+          "document_title": "형식 설명용 가상 매뉴얼",
+          "document_url": "/api/v1/documents/00000000-0000-4000-8000-000000000011",
+          "quote": "이 인용문은 API 형식 설명용 가상 데이터이며 실제 매뉴얼의 내용이 아닙니다.",
+          "reference_scope": "analogous",
+          "locator": {
+            "kind": "pdf_page",
+            "page_number": 12,
+            "printed_page_label": "10",
+            "char_start": null,
+            "char_end": null,
+            "bbox": null
+          }
+        }
+      ],
+      "notices": [
+        {
+          "code": "ANALOGOUS_REFERENCE",
+          "message": "API 형식 설명용 가상 자료입니다.",
+          "field": null
+        }
+      ]
+    },
+    "error": null
+  },
+  "feedback_request": {
+    "verdict": "needs_revision",
+    "error_categories": [
+      "missing_context"
+    ],
+    "comment": "제어기 모델 확인도 먼저 요청하면 좋겠습니다.",
+    "supersedes_id": null
+  },
+  "feedback_created": {
+    "feedback_id": "00000000-0000-4000-8000-000000000006",
+    "answer_id": "00000000-0000-4000-8000-000000000004",
+    "reviewer_id": "00000000-0000-4000-8000-000000000005",
+    "verdict": "needs_revision",
+    "error_categories": [
+      "missing_context"
+    ],
+    "comment": "제어기 모델 확인도 먼저 요청하면 좋겠습니다.",
+    "supersedes_id": null,
+    "created_at": "2026-09-26T01:02:00Z"
+  },
+  "conflict_problem": {
+    "type": "about:blank",
+    "title": "Conflict",
+    "status": 409,
+    "detail": "같은 생산자의 사건 ID에 다른 내용이 이미 등록되어 있습니다.",
+    "instance": "/api/v1/alerts",
+    "code": "EVENT_ID_CONFLICT",
+    "request_id": "00000000-0000-4000-8000-000000000099",
+    "errors": []
+  }
+}

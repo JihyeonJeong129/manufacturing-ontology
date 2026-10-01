@@ -1,0 +1,13 @@
+{
+  "provider": "local-onnx",
+  "model_name": "intfloat/multilingual-e5-small",
+  "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "dimensions": 384,
+  "distance_metric": "cosine",
+  "preprocessing_version": "e5-prefix-v1",
+  "query_prefix": "query: ",
+  "passage_prefix": "passage: ",
+  "pooling": "mean",
+  "onnx_file": "onnx/model.onnx",
+  "files": ["config.json", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "onnx/model.onnx"]
+}

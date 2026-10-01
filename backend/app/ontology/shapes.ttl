@@ -1,0 +1,191 @@
+# RSW SHACL shapes (rsw-shapes-1.0)
+# 동결된 지식 배포본에서 생성한 RDF의 "구조"를 검사한다. 물리적 고장 원인의 사실성을 검증하지 않는다.
+# 이 파일의 SHA-256은 knowledge_releases.shapes_sha256에 기록된다.
+@prefix rsw:  <urn:rsw:ontology#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+
+<urn:rsw:shapes> a owl:Ontology ;
+    owl:versionInfo "rsw-shapes-1.0" ;
+    sh:declare [ sh:prefix "rsw" ; sh:namespace "urn:rsw:ontology#"^^xsd:anyURI ] ,
+               [ sh:prefix "rdfs" ; sh:namespace "http://www.w3.org/2000/01/rdf-schema#"^^xsd:anyURI ] .
+
+rsw:ReleaseShape a sh:NodeShape ;
+    sh:targetClass rsw:KnowledgeRelease ;
+    sh:property [ sh:path rsw:version ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path rsw:ontologyVersion ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rsw:shapesVersion ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rsw:builderVersion ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rsw:releaseStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "frozen" ) ;
+                  sh:message "RDF는 동결(frozen)된 배포본에서만 생성한다." ] .
+
+rsw:EntityShape a sh:NodeShape ;
+    sh:targetClass rsw:KnowledgeEntity ;
+    sh:property [ sh:path rsw:inRelease ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:KnowledgeRelease ] ;
+    sh:property [ sh:path rsw:kind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "component_type" "scenario" "fault_type" "alarm_code" "diagnostic_rule" "hypothesis"
+                          "evidence_pattern" "feature" "document_section" "procedure" "numeric_spec" ) ] ;
+    sh:property [ sh:path rsw:namespace ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path rsw:localCode ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+    sh:property [ sh:path rdfs:label ; sh:minCount 1 ; sh:datatype rdf:langString ; sh:uniqueLang true ;
+                  sh:qualifiedValueShape [ sh:languageIn ( "ko" ) ] ; sh:qualifiedMinCount 1 ;
+                  sh:message "개념에는 한국어 표시 이름이 정확히 필요하다." ] ;
+    sh:property [ sh:path rsw:description ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] ;
+    sh:property [ sh:path rsw:reviewStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "draft" "reviewed" "rejected" ) ] .
+
+# ----- 하위 타입 행 존재 (SCHEMA.md 5장 배포 검사 2) -----
+rsw:ScenarioShape a sh:NodeShape ;
+    sh:targetClass rsw:Scenario ;
+    sh:property [ sh:path rsw:scenarioKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "fault_response" "cause_exploration" "missing_context" "operational_context" ) ;
+                  sh:message "scenario 개념에는 scenarios 하위 행이 필요하다." ] ;
+    sh:property [ sh:path rsw:requiredContext ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype rdf:JSON ] .
+
+rsw:FeatureShape a sh:NodeShape ;
+    sh:targetClass rsw:Feature ;
+    sh:property [ sh:path rsw:featureKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:message "feature 개념에는 feature_definitions 하위 행이 필요하다." ] ;
+    sh:property [ sh:path rsw:valueType ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "number" "string" "boolean" "unknown" ) ] ;
+    sh:property [ sh:path rsw:unitStatus ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+rsw:EvidencePatternShape a sh:NodeShape ;
+    sh:targetClass rsw:EvidencePattern ;
+    sh:property [ sh:path rsw:patternKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:message "evidence_pattern 개념에는 evidence_patterns 하위 행이 필요하다." ] ;
+    sh:property [ sh:path rsw:conditions ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype rdf:JSON ] .
+
+rsw:ProcedureShape a sh:NodeShape ;
+    sh:targetClass rsw:Procedure ;
+    sh:property [ sh:path rsw:procedureKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:message "procedure 개념에는 procedures 하위 행이 필요하다." ] ;
+    sh:property [ sh:path rsw:requiredRole ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] ;
+    sh:property [ sh:path rsw:sourceSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] ;
+    sh:property [ sh:path rsw:hasStep ; sh:minCount 1 ; sh:class rsw:ProcedureStep ;
+                  sh:message "절차에는 최소 1개의 단계가 필요하다." ] .
+
+rsw:ProcedureStepShape a sh:NodeShape ;
+    sh:targetClass rsw:ProcedureStep ;
+    sh:property [ sh:path rsw:stepNumber ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ] ;
+    sh:property [ sh:path rsw:instruction ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] ;
+    sh:property [ sh:path rsw:sourceSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] ;
+    sh:property [ sh:path rsw:branchCondition ; sh:maxCount 1 ; sh:datatype rdf:JSON ] .
+
+rsw:NumericSpecShape a sh:NodeShape ;
+    sh:targetClass rsw:NumericSpec ;
+    sh:property [ sh:path rsw:comparison ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "eq" "lt" "le" "gt" "ge" "range" "unresolved" ) ;
+                  sh:message "numeric_spec 개념에는 numeric_specs 하위 행이 필요하다." ] ;
+    sh:property [ sh:path rsw:specKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "paper_definition" "equipment_setting" "maintenance_limit" "recommendation" ) ] ;
+    sh:property [ sh:path rsw:originalValueText ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rsw:sourceSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] .
+
+rsw:DocumentSectionShape a sh:NodeShape ;
+    sh:targetClass rsw:DocumentSection ;
+    sh:property [ sh:path rsw:documentRevision ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentRevision ;
+                  sh:message "document_section 개념은 추출된 원문 절(document_sections)로 추적 가능해야 한다." ] ;
+    sh:property [ sh:path rsw:title ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rsw:textSha256 ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[0-9a-f]{64}$" ] .
+
+rsw:DocumentRevisionShape a sh:NodeShape ;
+    sh:targetClass rsw:DocumentRevision ;
+    sh:property [ sh:path rsw:sealed ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( true ) ;
+                  sh:message "배포본에 포함된 원문 판본은 봉인되어야 한다." ] ;
+    sh:property [ sh:path rsw:sourceSha256 ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[0-9a-f]{64}$" ] .
+
+# ----- 조건부 관계 -----
+rsw:RelationShape a sh:NodeShape ;
+    sh:targetClass rsw:Relation ;
+    sh:property [ sh:path rsw:subject ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:KnowledgeEntity ] ;
+    sh:property [ sh:path rsw:object ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:KnowledgeEntity ] ;
+    sh:property [ sh:path rsw:predicate ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( rsw:relatedFault rsw:raisesHypothesis rsw:hasPattern rsw:suggests rsw:mayContributeTo
+                          rsw:mapsTo rsw:triggers rsw:hasProcedure rsw:checksHypothesis rsw:usesSpec
+                          rsw:concernsComponent rsw:documentedIn ) ] ;
+    sh:property [ sh:path rsw:conditions ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype rdf:JSON ;
+                  sh:message "관계의 조건을 버리지 않는다 (조건 없음은 {})." ] ;
+    sh:property [ sh:path rsw:evidenceKind ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "manual" "paper" "team_analysis" "expert" "mixed" "inference" ) ] ;
+    sh:property [ sh:path rsw:empiricalStatus ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "hypothesis" "source_statement" "tested" "supported" "refuted" ) ] ;
+    sh:property [ sh:path rsw:reviewStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "draft" "reviewed" "rejected" ) ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "검토 완료(reviewed) 관계에는 지지(supports) 근거가 최소 1개 필요하다." ;
+        sh:prefixes <urn:rsw:shapes> ;
+        sh:select """
+            SELECT $this WHERE {
+                $this rsw:reviewStatus "reviewed" .
+                FILTER NOT EXISTS { $this rsw:hasEvidence ?e . ?e rsw:evidenceRole "supports" . }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "관계 양 끝의 개념 종류가 relation_rules 계약과 맞지 않는다." ;
+        sh:prefixes <urn:rsw:shapes> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this rsw:predicate ?value ; rsw:subject ?s ; rsw:object ?o .
+                ?s rsw:kind ?sk . ?o rsw:kind ?ok .
+                FILTER (CONCAT(STR(?value), "|", STR(?sk), "|", STR(?ok)) NOT IN (
+                    "urn:rsw:ontology#relatedFault|scenario|fault_type",
+                    "urn:rsw:ontology#raisesHypothesis|scenario|hypothesis",
+                    "urn:rsw:ontology#hasPattern|hypothesis|evidence_pattern",
+                    "urn:rsw:ontology#suggests|evidence_pattern|hypothesis",
+                    "urn:rsw:ontology#mayContributeTo|hypothesis|fault_type",
+                    "urn:rsw:ontology#mapsTo|alarm_code|fault_type",
+                    "urn:rsw:ontology#triggers|diagnostic_rule|scenario",
+                    "urn:rsw:ontology#hasProcedure|scenario|procedure",
+                    "urn:rsw:ontology#checksHypothesis|procedure|hypothesis",
+                    "urn:rsw:ontology#usesSpec|procedure|numeric_spec",
+                    "urn:rsw:ontology#concernsComponent|hypothesis|component_type",
+                    "urn:rsw:ontology#concernsComponent|procedure|component_type",
+                    "urn:rsw:ontology#documentedIn|alarm_code|document_section",
+                    "urn:rsw:ontology#documentedIn|fault_type|document_section",
+                    "urn:rsw:ontology#documentedIn|hypothesis|document_section",
+                    "urn:rsw:ontology#documentedIn|scenario|document_section",
+                    "urn:rsw:ontology#documentedIn|procedure|document_section",
+                    "urn:rsw:ontology#documentedIn|numeric_spec|document_section"
+                ))
+            }""" ;
+    ] .
+
+rsw:RelationEvidenceShape a sh:NodeShape ;
+    sh:targetClass rsw:RelationEvidence ;
+    sh:property [ sh:path rsw:evidenceSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] ;
+    sh:property [ sh:path rsw:evidenceRole ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "supports" "refutes" "context" ) ] ;
+    sh:property [ sh:path rsw:explanation ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] .
+
+# ----- 장비 적용성 -----
+rsw:ApplicabilityShape a sh:NodeShape ;
+    sh:targetClass rsw:Applicability ;
+    sh:property [ sh:path rsw:content ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:KnowledgeEntity ] ;
+    sh:property [ sh:path rsw:assetConfig ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:AssetConfig ] ;
+    sh:property [ sh:path rsw:referenceScope ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "applicable" "analogous" "comparison" "unknown" ) ] ;
+    sh:property [ sh:path rsw:conditions ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype rdf:JSON ] ;
+    sh:property [ sh:path rsw:reviewStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "draft" "reviewed" "rejected" ) ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "검토 완료된 applicable 적용성에는 원문 근거(applicability_evidence)가 필요하다." ;
+        sh:prefixes <urn:rsw:shapes> ;
+        sh:select """
+            SELECT $this WHERE {
+                $this rsw:reviewStatus "reviewed" ; rsw:referenceScope "applicable" .
+                FILTER NOT EXISTS { $this rsw:evidenceSection ?s . }
+            }""" ;
+    ] .
+
+rsw:KnowledgeConflictShape a sh:NodeShape ;
+    sh:targetClass rsw:KnowledgeConflict ;
+    sh:property [ sh:path rsw:affectedEntity ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:KnowledgeEntity ] ;
+    sh:property [ sh:path rsw:leftSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] ;
+    sh:property [ sh:path rsw:rightSection ; sh:minCount 1 ; sh:maxCount 1 ; sh:class rsw:DocumentSection ] ;
+    sh:property [ sh:path rsw:conflictStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "unresolved" "resolved" ) ] .
+
+rsw:AssetConfigShape a sh:NodeShape ;
+    sh:targetClass rsw:AssetConfig ;
+    sh:property [ sh:path rsw:verificationStatus ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "unverified" "verified" ) ] .

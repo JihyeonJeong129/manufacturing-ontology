@@ -1,0 +1,18 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.idea/
+.vscode/
+.DS_Store
+
+# 원본 문서(벤더 매뉴얼 등)는 저작권·용량 문제로 저장소에 포함하지 않는다
+RAW Data/
+*.pdf
+!docs/**/*.pdf
+
+# README는 임시 문서
+README.md

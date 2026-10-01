@@ -1,0 +1,151 @@
+name: fastapi-postgres
+
+# RSW 정비 안내 MVP
+# - db:      PostgreSQL 18 + pgvector (스키마가 요구하는 조합)
+# - migrate: alembic upgrade head (rsw 스키마 + API 보조 테이블) 1회 실행
+# - api:     FastAPI 연동 API (6개 엔드포인트)
+# - worker:  정규화/답변 생성 백그라운드 작업 처리 (PostgreSQL 작업 테이블 소비)
+# - tests:   단위 + 통합 테스트 (profile: test). 별도 테스트 DB(<POSTGRES_DB>_test)를 만들어 사용
+# - mvp-tests: RSW MVP 실제 지식 적재·시연 동작 검증 (profile: test). 별도 DB(<POSTGRES_DB>_mvp_test) 사용
+# - pgadmin: DB 관리 UI (profile: tools). infra/pgadmin/servers.json으로 db 서버가 미리 등록된다
+#
+# 원본 문서(정의서·매뉴얼 5종·RAG 활용정리)는 RAW_DATA_HOST_DIR(기본 ../RAW Data)을 읽기 전용으로 마운트.
+
+x-backend-env: &backend-env
+  STORAGE_ROOT: /data/storage
+  RAW_DATA_DIR: /data/raw
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    container_name: postgres-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TZ}
+      PGTZ: ${TZ}
+    ports:
+      - "${DB_EXPOSE_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18 이미지는 PGDATA=/var/lib/postgresql/18/docker 이므로 상위 경로를 마운트
+      - postgres18_data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro   # 최초 기동 시 실행할 SQL/스크립트
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    image: fastapi-app:latest
+    env_file: .env
+    environment:
+      <<: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    image: fastapi-app:latest
+    container_name: fastapi-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *backend-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # 개발용: 소스 마운트 + 자동 리로드 (운영 시 아래 volumes 중 소스 마운트/command 제거)
+    volumes:
+      - ./backend/app:/app/app
+      - app_storage:/data/storage
+      - "${RAW_DATA_HOST_DIR:-../RAW Data}:/data/raw:ro"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    image: fastapi-app:latest
+    container_name: fastapi-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./backend/app:/app/app
+      - app_storage:/data/storage
+      - "${RAW_DATA_HOST_DIR:-../RAW Data}:/data/raw:ro"
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      disable: true
+
+  tests:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: test
+    image: fastapi-app:test
+    env_file: .env
+    environment:
+      <<: *backend-env
+      STORAGE_ROOT: /tmp/rsw-test-storage
+    volumes:
+      - "${RAW_DATA_HOST_DIR:-../RAW Data}:/data/raw:ro"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["pytest", "-q"]
+
+  mvp-tests:
+    profiles: ["test"]
+    image: fastapi-app:test
+    env_file: .env
+    environment:
+      <<: *backend-env
+      STORAGE_ROOT: /tmp/rsw-mvp-test-storage
+    volumes:
+      - "${RAW_DATA_HOST_DIR:-../RAW Data}:/data/raw:ro"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["pytest", "-q", "tests/mvp"]
+
+  pgadmin:
+    profiles: ["tools"]
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres18_data:
+  app_storage:
+  pgadmin_data:
